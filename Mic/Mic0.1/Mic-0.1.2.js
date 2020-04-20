@@ -1,7 +1,8 @@
 /* MIC框架
 ****MIC:Made In China
-****版本：v0.2
-****初始公開發佈日期：2019.05.01
+****版本：v0.1.2(靜態終極版)
+****初始發佈：2018.08.01
+****本版發佈：2018.08.02
 ****使用小說明：
 	IE8模式下,會讀取注釋掉的元素，若需兼容IE8，內部請不要注釋DOM元素，應直接刪除，如若不要兼容IE8，可注釋
 	m-for基本與Vue的v-for功能相同
@@ -20,47 +21,18 @@
 */
 var mic=function(obj){return new Mic(obj)};
 
-function Mic(w){this.init(w)}
-Mic.prototype.init=function(obj){
-	var root=this;
-	var element=document.getElementById(obj.el.substr(1));
-	var cloneEle=element.cloneNode(true);
-	element.parentElement.insertBefore(cloneEle,element);
-	element.parentElement.removeChild(element);
-	var rootProxy=new Proxy(root, {
-		get:function(target,name,receiver){
-			return target[name];
-		},
-		set:function(target,name,value){
-			target[name]=value;
-			var oldEle=document.getElementById(obj.el.substr(1));
-			var newCloneEle=element.cloneNode(true);
-			oldEle.parentElement.insertBefore(newCloneEle,oldEle);
-			oldEle.parentElement.removeChild(oldEle);
-			root.initDom(obj,rootProxy,newCloneEle);
-			root.execAction(obj,rootProxy,newCloneEle);
-			root.runRemove(obj,rootProxy);
-		}
-	});	
-	var begin=new Promise(function(){console.log('begin run')});
-	begin.then(this.initData(obj,root))
-	.then(this.execCreated(obj,root))
-	.then(this.initDom(obj,rootProxy,cloneEle))
-	.then(this.execAction(obj,rootProxy,cloneEle))
-	.then(this.execMounted(obj,rootProxy))
-	.then(this.runRemove(obj,rootProxy));
-}
-	
-/***************************************************
-***** 第一步，取得data內和methods內數據，便於操作 *****
-****************************************************/
-Mic.prototype.initData=function(obj,root){
+function Mic(obj) {
+
+	/***************************************************
+	***** 第一步，取得data內和methods內數據，便於操作 *****
+	****************************************************/
+
 	/* 獲取data內數據 */
 	if(obj.data){
 		for(name in obj.data){
 			if((typeof obj.data[name]=='function')){
 				console.error("data內請不要定義函數");return false;
-			}else{root[name]=obj.data[name];}
+			}else{this[name]=obj.data[name];}
 		}
 	};
 
@@ -68,42 +40,36 @@ Mic.prototype.initData=function(obj,root){
 	if(obj.methods){
 		for(name in obj.methods){
 			if(typeof obj.methods[name] =='function'){
-				root[name]=obj.methods[name]
+				this[name]=obj.methods[name]
 			}else{
 				console.error("methods內請定義函數");return false
 			}
 		}
-	};		
-}
+	};
 
-/**********************************
-***** 第二步，執行created內代碼 *****
-***********************************/
-
-Mic.prototype.execCreated=function(obj,root){
+	/**********************************
+	***** 第二步，執行created內代碼 *****
+	***********************************/
+	
 	/* 將created的作用域設置在自己體內 */
-	if(obj.created){
-		obj.created.call(this);
-	}
-}	
+
+	if(obj.created){obj.created.call(this);};
 
 
+	/************************************
+	***** 第三步，獲取HTML內的元素DOM *****
+	*************************************/
 
-/***************************************
-***** 第三步，獲取HTML內的元素DOM ********
-******* 並對el內的所有元素進行操作 *******
-****************************************/
-
-
-
-Mic.prototype.initDom=function(obj,root,ele){		
-
-	/* 獲取的DOM元素 */
-	var element=ele;
+	/* 獲取帶Vue的DOM元素 */
+	var element=document.getElementById(obj.el.substr(1));
 
 	/* 獲得所有域內元素 */
-	
 	var eleOffspring=offspring(element);
+	
+
+	/****************************************
+	***** 第四步，對el內的所有元素進行操作 *****
+	*****************************************/
 
 	/* 第一步處理m-for,必須先處理m-for */
 
@@ -111,6 +77,7 @@ Mic.prototype.initDom=function(obj,root,ele){
 	var forCollection = collection(eleOffspring, 'm-for');
 	var forAttCol=forCollection.attCol;
 	var forElsCol=forCollection.elsCol;
+
 	/* 處理m-for */
 	if(forCollection){
 		for(var i=0;i<forAttCol.length;i++){
@@ -118,12 +85,12 @@ Mic.prototype.initDom=function(obj,root,ele){
 			var param=[],forEls={},forOS={};
 			var forEle=forElsCol[i];/* 獲取m-for所在的DOM元素 */
 			var forParent=forEle.parentNode;/* 獲取DOM元素的父元素，用於添加DOM元素 */
-			var forObj=forEle.__mic__.data[trim(forParam[1])]?forEle.__mic__.data[trim(forParam[1])]:root[trim(forParam[1])];/* 判斷第二參數是否在__mic__.data中，如果在賦值，不存在則使用data中的數據 */
+			var obj=forEle.micData&&forEle.micData[trim(forParam[1])]?forEle.micData[trim(forParam[1])]:this[trim(forParam[1])];/* 判斷第二參數是否在micData中，如果在賦值，不存在則使用data中的數據 */
 			var count=0;/* 定義計數器 */
 			forParam[0]=alltrim(forParam[0].replace('(','').replace(')',''));/* 去除左右括號 */
 			if(forParam[0].search(',')){param=forParam[0].split(',')}else{param[0]=forParam[0]};/* 若有逗號，則第一個參數用逗號分開后，存到指定數組param中，否則直接存到param中 */
-			if(forObj instanceof  Array){/* 如果是數組型 */
-				for (var j=0;j<forObj.length;j++){/* 遍歷數組 */
+			if(obj instanceof  Array){/* 如果是數組型 */
+				for (var j=0;j<obj.length;j++){/* 遍歷數組 */
 					forEls=forEle.cloneNode(true);/* 拷貝DOM對象 */
 					removeAttribute(forEls,'m-for');/* 刪除m-for屬性，防止死循環 */
 					forParent.insertBefore(forEls,forEle);/* 將拷貝的對象添加到前面 */
@@ -134,16 +101,16 @@ Mic.prototype.initDom=function(obj,root,ele){
 					forElsCol=forElsCol.concat(forElsOS);/* 將子元素中的帶m-for的元素集合拼合到帶m-for的元素大集合中 */
 					onForOS=offspring(forEls);/* 獲取DOM元素的子孫集合 */
 					onForOS.forEach(function(item,index){
-						if(JSON.stringify(onForOS[index].parentNode.__mic__.data) !== "{}"){/* 如果父元素的__mic__.data有值 */
-							onForOS[index].__mic__.data=cloneObject(onForOS[index].parentNode.__mic__.data);/* 拷貝父元素的__mic__.data屬性 */
-						}
-						onForOS[index].__mic__.data[param[0]]=forObj[j];/* 將值放到第一位置（必須） */
-						if(param[1])onForOS[index].__mic__.data[param[1]]=j;/* 將順序值放到第二位置（非必須），只有設置才有 */
+						if(onForOS[index].parentNode.micData){/* 如果父元素存在micData屬性 */
+							onForOS[index].micData=cloneObject(onForOS[index].parentNode.micData);/* 拷貝父元素的micData屬性 */
+						}else{onForOS[index].micData={};}/* 否則設為空 */
+						onForOS[index].micData[param[0]]=obj[j];/* 將值放到第一位置（必須） */
+						if(param[1])onForOS[index].micData[param[1]]=j;/* 將順序值放到第二位置（非必須），只有設置才有 */
 					})
 				}
 				forParent.removeChild(forEle);/* 移除被複製的元元素 */
-			}else if(forObj instanceof  Object){/* 如果是對象型 */
-				for(var name in forObj){
+			}else if(obj instanceof  Object){/* 如果是對象型 */
+				for(var name in obj){
 					forEls=forEle.cloneNode(true);
 					removeAttribute(forEls,'m-for');/* 刪除m-for屬性，防止死循環 */
 					forParent.insertBefore(forEls,forEle);/* 添加子元素 */
@@ -154,19 +121,20 @@ Mic.prototype.initDom=function(obj,root,ele){
 					forElsCol=forElsCol.concat(forElsOS);/* 將子元素中的帶m-for的元素集合拼合到帶m-for的元素大集合中 */
 					onForOS=offspring(forEls);
 					onForOS.forEach(function(item,index){
-						if(onForOS[index].parentNode.__mic__.data){/* 如果父元素存在__mic__.data屬性 */
-							onForOS[index].__mic__.data=cloneObject(onForOS[index].parentNode.__mic__.data);/* 拷貝父元素的__mic__.data屬性 */
-						}
-						onForOS[index].__mic__.data[param[0]]=forObj[name];/* 將值放到第一個位置 */
-						if(param[1])onForOS[index].__mic__.data[param[1]]=count;/* 將順序值放到第二位置（非必須），只有設置才有 */
-						if(param[2])onForOS[index].__mic__.data[param[2]]=name;/* 將名稱值放到第三位置（非必須），只有設置才有 */
+						if(onForOS[index].parentNode.micData){/* 如果父元素存在micData屬性 */
+							onForOS[index].micData=cloneObject(onForOS[index].parentNode.micData);/* 拷貝父元素的micData屬性 */
+						}else{onForOS[index].micData={};}/* 否則設為空 */
+						onForOS[index].micData[param[0]]=obj[name];/* 將值放到第一個位置 */
+						if(param[1])onForOS[index].micData[param[1]]=count;/* 將順序值放到第二位置（非必須），只有設置才有 */
+						if(param[2])onForOS[index].micData[param[2]]=name;/* 將名稱值放到第三位置（非必須），只有設置才有 */
 					})
 					count++;
 				}
 				forParent.removeChild(forEle);/* 移除被複製的元元素 */
 			}else{
 				console.warn('數據格式錯誤！如若不影響顯示，可不用理會，否則請檢查代碼！');
-			}			
+			}
+			
 		}
 	};
 	
@@ -181,13 +149,14 @@ Mic.prototype.initDom=function(obj,root,ele){
 
 	/* 解析{{}} */
 
-	for(var i=0;i<braces.length;i++){			
+	for(var i=0;i<braces.length;i++){
+		var that=this;
 		var text="'"+braces[i].data.replace(/{{/g,'\'+').replace(/}}/g,'+\'')+"'";
 		braces[i].data=text;
-		var parentData=braces[i].parent.__mic__.data;		
-		var tevn=strEval(text,parentData,root);
+		var parentData=braces[i].parent.micData;
+		var tevn=strEval(text,parentData,that);
 		tevn=tevn.replace(/\'\'\+/g,"").replace(/\+\'\'/g,"");
-		try {			
+		try {
 			tevn=eval(tevn);
 		} catch (error) {
 			console.error('請檢查{{}}內語法錯誤！！！');				
@@ -204,13 +173,13 @@ Mic.prototype.initDom=function(obj,root,ele){
 	
 	/* 再處理m-text */
 	if (textCollection){
+		var that=this;
 		for(var i=0;i<textAttCol.length;i++){
 			var textEle=textElsCol[i];/* 獲取m-text屬性的所在DOM元素 */
-			var textEleInfo=textEle.__mic__.data?textEle.__mic__.data:{};/* 獲取元素的__mic__.data值，即m-for中遍歷出來的值 */
+			var textEleInfo=textEle.micData?textEle.micData:{};/* 獲取元素的micData值，即m-for中遍歷出來的值 */
 			var textEleValue=textAttCol[i].value;/* 獲取m-text的值 */
-			
 			/* 解析數據 */
-			var tevn=strEval(textEleValue,textEleInfo,root);
+			var tevn=strEval(textEleValue,textEleInfo,that);
 			tevn=tevn.replace(/\'\'\+/g,"").replace(/\+\'\'/g,"");
 			try {
 				tevn=eval(tevn);
@@ -233,10 +202,10 @@ Mic.prototype.initDom=function(obj,root,ele){
 
 	/* 處理m-if */
 	if(ifCollection){
-		
+		var that=this;
 		for(var i=0;i<ifAttCol.length;i++){
 			var ifEle=ifElsCol[i];
-			var ifEleDate=ifEle.__mic__.data?ifEle.__mic__.data:{};
+			var ifEleDate=ifEle.micData?ifEle.micData:{};
 			/* 處理m-else */
 			var nextEle=ifEle.nextElementSibling||ifEle.nextSibling;/* 兼容IE8 */
 			var elseFlag=false;
@@ -251,8 +220,8 @@ Mic.prototype.initDom=function(obj,root,ele){
 			var scv1=trim(sc[0]);
 			var scv2=trim(sc[1]);
 			/* 判斷有值，防止() */
-			var evalS0=strEval(scv1,ifEleDate,root);
-			var evalS1=strEval(scv2,ifEleDate,root);
+			var evalS0=strEval(scv1,ifEleDate,that);
+			var evalS1=strEval(scv2,ifEleDate,that);
 			var evalS2='';
 			if(sc[2])evalS2=sc[2];
 			var comExp=evalS0+evalS2+evalS1;
@@ -281,20 +250,23 @@ Mic.prototype.initDom=function(obj,root,ele){
 	textAttCol=textCollection.attCol;
 	textElsCol=textCollection.elsCol;
 
-	if(modelCollection){			
+	if(modelCollection){
+		var that=this;
 		var modelEle={};
 		for(var i=0;i<modelAttCol.length;i++){
 			modelEle=modelElsCol[i];
 			var modelEleValue=modelAttCol[i].value;
 			var pattern=new RegExp('(\\+|-|\\*|\/|%|\s|\(|^)+'+modelEleValue+'(\\+|-|\\*|\/|%|\s|\)|$)+');
-			modelEle.value=root[modelEleValue];
+			modelEle.value=that[modelEleValue];
 			if (textCollection){
 				for(var j=0;j<textAttCol.length;j++){
 					var textEle=textElsCol[j];/* 獲取m-text屬性的所在DOM元素 */
 					var textEleValue=textAttCol[j].value;/* 獲取m-text的值 */
 					/* 解析數據 */					
 					if (textEleValue.search(pattern)>=0){
-						textEle.__mic__.text=textEleValue;					
+						if(!textEle.micActiveData)textEle.micActiveData={};
+						if(!textEle.micActiveData.data)textEle.micActiveData.data=cloneObject(textEle.micData);
+						textEle.micActiveData.text=textEleValue;					
 					}
 				}
 			};
@@ -303,13 +275,17 @@ Mic.prototype.initDom=function(obj,root,ele){
 				for(var k=0;k<braces.length;k++){
 					if(braces[k].parent){
 						if(braces[k].data.search(pattern)>=0){
-							braces[k].parent.__mic__.braces=braces[k].data;
+							if(!braces[k].parent.micActiveData)braces[k].parent.micActiveData={};
+							braces[k].parent.micActiveData.braces=braces[k].data;
+							if(!braces[k].parent.micActiveData.data)braces[k].parent.micActiveData.data=cloneObject(braces[k].parent.micData);
 						}
 					}		
 				}
 			}
 			/* 將數據存到brace中 */
-			modelEle.__mic__.braces=modelEleValue;
+			if(!modelEle.micActiveData)modelEle.micActiveData={};
+			modelEle.micActiveData.braces=modelEleValue;
+			if(!modelEle.micActiveData.data)modelEle.micActiveData.data=cloneObject(modelEle.micData);
 			/* 激活oninput */
 			if(modelEle.oninput!==undefined){
 				if (isIE9) {
@@ -321,30 +297,30 @@ Mic.prototype.initDom=function(obj,root,ele){
 					}
 				}
 				modelEle.oninput=function(){
-					modelEleValue=root.__mic__.braces;
-					root[modelEleValue]=root.value?root.value:"+''";
-					modelTextEval(root,textCollection,modelEleValue);
-					modelBracesEval(root,braces,modelEleValue);
+					modelEleValue=this.micActiveData.braces;
+					that[modelEleValue]=this.value?this.value:"+''";
+					modelTextEval(that,textCollection,modelEleValue);
+					modelBracesEval(that,braces,modelEleValue);
 				}
 			}else{/* 兼容IE8 */
 				modelEle.onpropertychange=function() {
-					modelEleValue=root.__mic__.braces;
-					root[modelEleValue]=root.value?root.value:"+''";
-					modelTextEval(root,textCollection,modelEleValue);
-					modelBracesEval(root,braces,modelEleValue);			
+					modelEleValue=this.micActiveData.braces;
+					that[modelEleValue]=this.value?this.value:"+''";
+					modelTextEval(that,textCollection,modelEleValue);
+					modelBracesEval(that,braces,modelEleValue);			
 				}
 			}
 		}
 	}
 
 	/* 動態解析被model綁定的Text */
-	function modelTextEval(root,coll,value){
-		root[value]=root[value].replace(/\\/g,"\\\\").replace(/\'/g,"\\\'");
+	function modelTextEval(that,coll,value){
+		that[value]=that[value].replace(/\\/g,"\\\\").replace(/\'/g,"\\\'");
 		if (coll){
 			for(var i=0;i<coll.attCol.length;i++){
 				var collElement=coll.elsCol[i];/* 獲取m-text屬性的所在DOM元素 */
-				if (collElement.__mic__.text.search(pattern)>=0){
-					var tevn=strEval(collElement.__mic__.text,collElement.__mic__.data,root);
+				if (collElement.micActiveData.text.search(pattern)>=0){
+					var tevn=strEval(collElement.micActiveData.text,collElement.micActiveData.data,that);
 					tevn=tevn.replace(/\'\'\+/g,"").replace(/\+\'\'/g,"");
 					if(tevn=="\'\+\\\'\\\'\'")tevn="''";
 					try {
@@ -360,21 +336,19 @@ Mic.prototype.initDom=function(obj,root,ele){
 	};
 
 	/* 動態解析被model綁定的Braces */
-	function modelBracesEval(root,coll,value) {
-		root[value]=root[value].replace(/\\/g,"\\\\").replace(/\'/g,"\\\'");
+	function modelBracesEval(that,coll,value) {
+		that[value]=that[value].replace(/\\/g,"\\\\").replace(/\'/g,"\\\'");
 		if (coll){
 			for(var i=0;i<coll.length;i++){
 				var collElement=coll[i].parent;/* 獲取braces屬性的所在DOM元素 */
-				if (collElement.__mic__.braces.search(pattern)>=0){
-					var tevn=strEval(collElement.__mic__.braces,collElement.__mic__.data,root);
+				if (collElement.micActiveData.braces.search(pattern)>=0){
+					var tevn=strEval(collElement.micActiveData.braces,collElement.micActiveData.data,that);
 					tevn=tevn.replace(/\'\'\+/g,"").replace(/\+\'\'/g,"");
 					if(tevn=="\'\+\\\'\\\'\'")tevn="''";
-					
-					console.log(tevn)
 					try {
 						tevn=eval(tevn);
 					} catch (error) {
-						console.error('請檢查{{}}內語法錯誤！！！');		
+						console.error('請檢查m-text語法錯誤！！！');		
 						tevn="";
 					}
 					coll[i].node.data=tevn;
@@ -382,92 +356,32 @@ Mic.prototype.initDom=function(obj,root,ele){
 			}
 		};
 	}
-}
 
-/**********************************
-****** 第四步，重新加載Dom元素 ******
-***********************************/
+	/**********************************
+	***** 第五步，執行mounted內代碼 *****
+	***********************************/
 
-Mic.prototype.reloadDom=function(obj,root){
-	/* 獲取帶Vue的DOM元素 */
-	var element=document.getElementById(obj.el.substr(1));
+	/* 將mounted的作用域設置在自己體內 */
+	if(obj.mounted){obj.mounted.call(this);};
 
-	/* 獲得所有域內元素 */
-	var eleOffspring=offspring(element);
-}
 
-/**********************************
-***** 第五步，執行mounted內代碼 *****
-***********************************/
+	/********************************
+	***** 第六步，銷毀所有內創信息 *****
+	*********************************/
 
-/* 將mounted的作用域設置在自己體內 */
-Mic.prototype.execMounted=function(obj,root){
-	if(obj.mounted)obj.mounted.call(this);
-}
-
-/**********************************
-***** 第五步，執行mounted內代碼 *****
-***********************************/
-Mic.prototype.execAction=function(obj,root,element){
-
-	/* 獲得所有域內元素 */
-	
-	var eleOffspring=offspring(element);	
-
-	/* 將m-for統一存放到數組 */
-	var actionCollection = syncCollection(eleOffspring, '@');
-	var actionAttCol=actionCollection.attCol;
-	var actionElsCol=actionCollection.elsCol;
-	
-	if(actionCollection){		
-		for(var i=0;i<actionAttCol.length;i++){
-			var actionName=actionAttCol[i].slice(1);/* 獲取@綁定的行為 */
-			actionElsCol[i].addEventListener(actionName,function(){/* 添加行為 */
-				var onData=this.__mic__.data;
-				var action=this.__mic__.attributes['@'+actionName];
-				if(action.search(/(\()/)>0){					
-					var sf=action.split('(');
-					var paramString=sf[1].replace(')','')
-					var params=paramString.split(',');
-					var param=[];
-					params.forEach(function(item,index){
-						if(onData[item]!==undefined){param.push("'"+onData[item]+"'")}
-						else{param.push('root.'+item)};
-					})
-					param=param.join(',');
-					var ec='root.'+sf[0]+'('+param+')';
-					eval(ec);
-				}else{
-					root[action]();
-				}			
-			})
-		}
-	}
-}
-
-/********************************
-***** 第六步，銷毀所有內創信息 *****
-*********************************/
-Mic.prototype.runRemove=function(obj,root){
-	
-	/* 獲取帶Vue的DOM元素 */
-	var element=document.getElementById(obj.el.substr(1));
-
-	/* 獲得所有域內元素 */
-	var eleOffspring=offspring(element);
 	/* 移除所有vue屬性 */
 	var attributes=['m-text','m-if','@',':','m-else','m-model'];
 	removeAttribute(eleOffspring,attributes);
-}
 
-/* 移除所有元素的__mic__.data */
-// eleOffspring.forEach(function(item,index) {
-// 	try {/* IE8不支持delete,用此法兼容 */
-// 		delete(eleOffspring[index].__mic__.data);
-// 	} catch (error) {
-// 		eleOffspring[index].__mic__.data={};/* 在IE8中設置為空即可清除 */
-// 	}
-// })
+	/* 移除所有元素的micData */
+	eleOffspring.forEach(function(item,index) {
+		try {/* IE8不支持delete,用此法兼容 */
+			delete(eleOffspring[index].micData);
+		} catch (error) {
+			eleOffspring[index].micData={};/* 在IE8中設置為空即可清除 */
+		}
+    })
+}
 
 /**********************************************************
 ************************* 功能函數 *************************
@@ -617,30 +531,17 @@ function offspringCollection(ele) {
 /* 獲取所有域內元素 */
 function offspring(ele) {
 	var els = [];
-	if(!ele.__mic__)ele.__mic__={data:{},attributes:{}};
 	els[0] = ele;
 	var offsprings=offspringCollection(ele);	
 	if(offsprings){
 		offsprings.forEach(function (item, index) {
 			for (var k = 0; k < offsprings[index].length; k++) {
-				if(offsprings[index][k].__mic__){
-					if(!offsprings[index][k].__mic__.data)offsprings[index][k].__mic__.data={};
-					if(!offsprings[index][k].__mic__.attributes)offsprings[index][k].__mic__.attributes={};
-				}else{
-					offsprings[index][k].__mic__={data:{},attributes:{}};
-				}
-				for(var l=0;l< offsprings[index][k].attributes.length;l++){
-					var name=offsprings[index][k].attributes[l].name;
-					var value=offsprings[index][k].attributes[l].value;
-					offsprings[index][k].__mic__.attributes[name]=value;
-				}
 				els.push(offsprings[index][k])
 			}
 		});
 	};
 	return els;
 };
-
 
 /* 獲取節點集合 */
 function nodesCollection(els) {
@@ -683,33 +584,6 @@ function collection(els,attr) {
 	});
 	collection.elsCol=elsCol;
 	collection.attCol=attCol;
-	return collection;
-};
-
-/* 獲取元素集合中指定屬性的屬性與元素的綜合集合函數 */
-function syncCollection(els,attr) {
-	var elsCol=[],valCol=[],attCol=[],collection={};
-	els.forEach(function(item,index){/* 遍歷DOM元素集 */
-		for(var i in item.__mic__.attributes){/* 遍歷DOM元素集的屬性集 */
-			var attrName=i;/* 獲取DOM元素的屬性名 */
-			if(attr.length==1){/* 如果屬性是開頭標記 */
-				if(attrName.substring(0,1)==attr){
-					attCol.push(i);
-					valCol.push(item.__mic__.attributes[i]);
-					elsCol.push(els[index]);
-				}
-			}else{
-				if(attrName==attr){
-					attCol.push(i);
-					valCol.push(item.__mic__.attributes[i]);
-					elsCol.push(els[index]);
-				}
-			}
-		}
-	});
-	collection.elsCol=elsCol;
-	collection.attCol=attCol;
-	collection.valCol=valCol;
 	return collection;
 };
 

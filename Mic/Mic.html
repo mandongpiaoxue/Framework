@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-cn">
+
+<head>
+	<meta charset="UTF-8">
+	<title>工具測試</title>
+	<script src="Mic0.4.js"></script>
+	<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+</head>
+
+<body>
+	<!-- Bug m-if为false的时候，点击会报错，报很多错误 -->
+	<!-- m-model不能绑定m-for的值 -->
+	<div id="app">
+		<i>safda{{(23423+523424)*4654}}<s>{{5645+56456}}</s></i>
+		<a m-for='item,index in text' m-if='flag'>
+			<button m-text='item' @click="add"></button>
+		</a>
+		<input m-model="text" type="text">
+		<button @click="add">點擊</button>
+		<div m-text="is"></div>
+		<div m-text="text"></div>
+		<div>{{a}}</div>
+		<button id='dian' @click='getData'>dian</button>
+	</div>
+	<script>
+		var mic = new Mic({
+			el: "#app",
+			data: {
+				text: "werwe",
+				is: ['中', '華', '人', '民', '共', '龢', '國'],
+				flag: true,
+				a: 4
+			},
+			created: function () {
+				this.text = [1, 2, 3, 4];
+
+			},
+			methods: {
+				add() {
+					this.flag = !this.flag
+					this.a = this.a + 1;
+				},
+				getData() {
+					console.log(this);
+					var that = this;
+
+					axios.get('data.json').then(function (res) {
+
+						that.text = res.data;
+					})
+				}
+			},
+			mounted() { }
+		});
+	</script>
+
+</body>
+
+</html>
