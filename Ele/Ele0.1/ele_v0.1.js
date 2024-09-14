@@ -1,11 +1,13 @@
 /* 仿jQuery庫之Ele庫 */
 /* ES2015類 */
-/* class Element {
- 	constructor(ele) { this[0] = ele; return this }
- 	index() { return index(this[0]) }
- 	onActive(className) { onActive(this[0], className); return this }
- 	activeClock(){activeClock(this[0]);return this}
- } */
+/*
+	版本：V0.1
+	更新日期：2020.04.20
+	使用說明：
+		1、使用prototype方法編寫
+		2、Element執行速度快，Elements因為要遍歷，所以速度慢
+		3、Elements是jQuery的仿寫
+ */
 
 /* prototype方法 */
 /* Element執行速度快，Elements因為要遍歷，所以速度慢 */
