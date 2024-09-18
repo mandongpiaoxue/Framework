@@ -4,7 +4,7 @@
 <head>
 	<meta charset="UTF-8">
 	<title>工具測試</title>
-	<script src="Mic0.4.js"></script>
+	<script src="Mic0.5.js"></script>
 	<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
 </head>
 
@@ -13,46 +13,64 @@
 	<!-- m-model不能绑定m-for的值 -->
 	<div id="app">
 		<i>safda{{(23423+523424)*4654}}<s>{{5645+56456}}</s></i>
-		<a m-for='item,index in text' m-if='flag'>
+		<a m-for='item,index in text' m-if='3!==6'>
 			<button m-text='item' @click="add"></button>
 		</a>
+		<div m-html="mtml"></div>
 		<input m-model="text" type="text">
 		<button @click="add">點擊</button>
-		<div m-text="is"></div>
-		<div m-text="text"></div>
+		<!-- <div m-text="is"></div> -->
+		<div m-text="text" ref="ddd"></div>
 		<div>{{a}}</div>
 		<button id='dian' @click='getData'>dian</button>
+		<!-- <img src="http://www.onegreen.net/maps/Upload_maps/201912/2019122120132550.jpg" alt="" srcset=""> -->
 	</div>
 	<script>
-		var mic = new Mic({
-			el: "#app",
-			data: {
-				text: "werwe",
-				is: ['中', '華', '人', '民', '共', '龢', '國'],
-				flag: true,
-				a: 4
-			},
-			created: function () {
-				this.text = [1, 2, 3, 4];
+		// var mic = new Mic({
+		// 	el: "#app",
+		// 	data: {
+		// 		text: "werwe",
+		// 		is: ['中', '華', '人', '民', '共', '龢', '國'],
+		// 		flag: true,
+		// 		a: 4
+		// 	},
+		// 	created: function () {
+		// 		this.text = [1, 2, 3, 4];
 
-			},
-			methods: {
-				add() {
-					this.flag = !this.flag
-					this.a = this.a + 1;
-				},
-				getData() {
-					console.log(this);
-					var that = this;
+		// 	},
+		// 	methods: {
+		// 		add() {
+		// 			this.flag = !this.flag
+		// 			this.a = this.a + 1;
+		// 		},
+		// 		getData() {
+		// 			console.log(this);
+		// 			var that = this;
 
-					axios.get('data.json').then(function (res) {
+		// 			axios.get('data.json').then(function (res) {
 
-						that.text = res.data;
-					})
+		// 				that.text = res.data;
+		// 			})
+		// 		}
+		// 	},
+		// 	mounted() { }
+		// });
+
+
+		var vm = new Vue({
+			data() {
+				return {
+					text: [1, 2, 3, 4],
+					is: 'Vue_is',
+					item: 'Vue_item',
+					mtml: `<div m-text='is'></div>`,
+					flag: false,
+					a: 3,
+					b: 5
 				}
-			},
-			mounted() { }
-		});
+			}
+		}).mount('#app')
+
 	</script>
 
 </body>
